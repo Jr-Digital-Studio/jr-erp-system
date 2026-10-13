@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JR Digital Studio - Advanced ERP</title>
+    <!-- Offline Database -->
+    <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- ==========================================
+         LOGIN SCREEN
+         ========================================== -->
+    <div id="login-screen" class="login-overlay">
+        <div class="login-box">
+            <h2 style="color: var(--primary); margin-bottom: 20px;">JR DIGITAL<span style="color:#333;">.</span></h2>
+            <p style="color: #666; margin-bottom: 20px; font-size: 14px;">Enterprise ERP Login</p>
+            <div class="form-group">
+                <input type="text" id="login-user" placeholder="Username (Phone No)" style="padding: 12px;">
+            </div>
+            <div class="form-group" style="margin-top: 15px;">
+                <input type="password" id="login-pass" placeholder="Password" style="padding: 12px;">
+            </div>
+            <button class="btn btn-primary" style="width: 100%; margin-top: 20px; padding: 12px;" onclick="checkLogin()">Secure Login</button>
+            <p id="login-error" style="color: red; display: none; margin-top: 10px; font-size: 13px;">Invalid Username or Password!</p>
+        </div>
+    </div>
+
+    <!-- ==========================================
+         MAIN ERP APPLICATION
+         ========================================== -->
+    <div class="app-container" id="main-app" style="display: none;">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="brand">
+                <h2>JR DIGITAL<span>.</span></h2>
+                <p>Advanced ERP</p>
+            </div>
+            <nav class="nav-menu">
+                <a href="#" class="active" onclick="switchTab('dashboard')"><i class="fas fa-home"></i> Dashboard</a>
+                <a href="#" onclick="switchTab('masters')"><i class="fas fa-users-cog"></i> Ledgers Master</a>
+                <a href="#" onclick="switchTab('vouchers')"><i class="fas fa-file-invoice-dollar"></i> Vouchers & Billing</a>
+                <a href="#" onclick="switchTab('quotation')"><i class="fas fa-file-alt"></i> Quotation Maker</a>
+                <a href="#" onclick="switchTab('reports')"><i class="fas fa-chart-pie"></i> Financial Reports</a>
+                <a href="#" onclick="switchTab('settings')"><i class="fas fa-cog"></i> Settings</a>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header class="topbar">
+                <div class="user-info">
+                    <span class="financial-year" style="margin-right: 15px;">Welcome, Admin</span>
+                    <span class="badge-non-gst">NON-GST MODE</span>
+                    <button class="btn btn-danger" onclick="logout()" style="margin-left: 15px; padding: 5px 10px; font-size: 12px;">Logout</button>
+                </div>
+            </header>
+
+            <!-- 1. DASHBOARD -->
+            <div id="dashboard-view" class="view-section active-view">
+                <h1 class="page-title">Business Dashboard</h1>
+                <div class="bento-grid">
+                    <div class="card stat-card blue"><h3>Total Income</h3><h2 id="dash-income">₹0.00</h2></div>
+                    <div class="card stat-card red"><h3>Total Expense</h3><h2 id="dash-expense">₹0.00</h2></div>
+                    <div class="card stat-card green"><h3>Net Profit</h3><h2 id="dash-profit">₹0.00</h2></div>
+                    <div class="card stat-card yellow"><h3>Receivables</h3><h2 id="dash-receivable">₹0.00</h2></div>
+                </div>
+                
+                <div class="card wide-card" style="margin-top: 20px;">
+                    <h3 style="margin-bottom: 15px;">Recent Transactions</h3>
+                    <table class="data-table">
+                        <thead>
+                            <tr><th>Date</th><th>Vch No.</th><th>Type</th><th>Narration</th><th>Amount (₹)</th></tr>
+                        </thead>
+                        <tbody id="recent-transactions"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 2. LEDGER MASTER (Create / Alter / Display) -->
+            <div id="masters-view" class="view-section">
+                <h1 class="page-title">Ledger Master</h1>
+                <div class="card" style="margin-bottom: 20px;">
+                    <button class="btn btn-primary" onclick="showLedgerMode('create')">Create Ledger</button>
+                    <button class="btn btn-secondary" onclick="showLedgerMode('alter')">Alter / Display Ledgers</button>
+                </div>
+
+                <!-- Create/Edit Form -->
+                <div class="card" id="ledger-form-box">
+                    <h3 id="lm-title" style="margin-bottom: 15px; color: var(--primary);">Create New Ledger</h3>
+                    <input type="hidden" id="edit-ledger-id">
+                    <form id="ledger-form" class="form-grid">
+                        <div class="form-group"><label>Ledger Name</label><input type="text" id="ledger-name" required></div>
+                        <div class="form-group"><label>Under Group</label><select id="ledger-group" required></select></div>
+                        <div class="form-group"><label>Opening Bal (₹)</label><input type="number" id="ledger-op-bal" value="0" step="0.01"></div>
+                        <div class="form-group"><label>Dr / Cr</label><select id="ledger-type"><option value="Dr">Dr</option><option value="Cr">Cr</option></select></div>
+                        <div class="form-group"><label>Phone Number</label><input type="text" id="ledger-phone"></div>
+                        <div class="form-group" style="grid-column: span 2;"><label>Address</label><input type="text" id="ledger-address"></div>
+                        <div class="form-group full-width">
+                            <button type="submit" class="btn btn-primary" id="btn-save-ledger">Save Ledger</button>
+                            <button type="button" class="btn btn-secondary" onclick="showLedgerMode('create')" style="margin-left:10px;">Clear Form</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Alter/Display List -->
+                <div class="card" id="ledger-list-box" style="display: none;">
+                    <h3 style="margin-bottom: 15px; color: var(--text-main);">All Ledgers</h3>
+                    <table class="data-table">
+                        <thead><tr><th>Ledger Name</th><th>Group</th><th>Balance</th><th>Action</th></tr></thead>
+                        <tbody id="ledger-list-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 3. VOUCHER ENTRY -->
+            <div id="vouchers-view" class="view-section">
+                <div class="voucher-header-bar" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h1 class="page-title" style="margin:0;">Voucher Entry</h1>
+                    <div class="voucher-menu">
+                        <button class="btn btn-shortcut" onclick="openVoucherType('Contra')">F4 Contra</button>
+                        <button class="btn btn-shortcut" onclick="openVoucherType('Payment')">F5 Payment</button>
+                        <button class="btn btn-shortcut" onclick="openVoucherType('Receipt')">F6 Receipt</button>
+                        <button class="btn btn-shortcut" onclick="openVoucherType('Journal')">F7 Journal</button>
+                        <button class="btn btn-shortcut active-btn" onclick="openVoucherType('Sales')" style="background:var(--primary); color:white;">F8 Sales</button>
+                        <button class="btn btn-shortcut" onclick="openVoucherType('Purchase')" style="background:var(--yellow); color:white;">F9 Purchase</button>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 15px;">
+                        <div>
+                            <h3 id="v-title" style="color: var(--primary); font-size: 20px; display: inline-block;">Sales Voucher</h3>
+                            <span id="v-edit-badge" style="display:none; background:var(--red); color:white; padding:3px 10px; border-radius:4px; font-size:12px; margin-left:15px; vertical-align: top;">EDIT MODE</span>
+                        </div>
+                        <div style="display: flex; gap: 20px;">
+                            <div><label style="font-size:12px; font-weight: bold;">Vch No.</label><br><input type="text" id="v-no" class="v-input-small"></div>
+                            <div><label style="font-size:12px; font-weight: bold;">Date</label><br><input type="date" id="v-date" class="v-input-small"></div>
+                        </div>
+                    </div>
+
+                    <input type="hidden" id="edit-voucher-id">
+
+                    <!-- Invoice Mode (Sales/Purchase) -->
+                    <div id="mode-invoice">
+                        <div class="form-group" style="margin-bottom: 15px;">
+                            <label>Party A/c Name <button type="button" class="btn-tiny" onclick="showLedgerMode('create', true)">+ Add New Party</button></label>
+                            <select id="inv-party" class="v-input-large"></select>
+                        </div>
+                        <table class="tally-table">
+                            <thead><tr><th width="45%">Name of Item / Ledger</th><th width="15%">Qty</th><th width="20%">Rate (₹)</th><th width="20%">Amount (₹)</th><th width="5%"></th></tr></thead>
+                            <tbody id="inv-entries"></tbody>
+                            <tfoot><tr><td colspan="3" style="text-align: right; font-weight: bold;">Grand Total:</td><td id="inv-total" style="font-weight: bold; font-size:16px; color:var(--primary);">0.00</td><td></td></tr></tfoot>
+                        </table>
+                        <button type="button" class="btn btn-secondary" onclick="addInvRow()" style="margin-top: 10px; font-size:12px;">+ Add Item Row</button>
+                    </div>
+
+                    <!-- Accounting Mode (Receipt/Payment/Contra/Journal) -->
+                    <div id="mode-accounting" style="display: none;">
+                        <table class="tally-table">
+                            <thead><tr><th width="10%">Dr/Cr</th><th width="50%">Particulars <button type="button" class="btn-tiny" onclick="showLedgerMode('create', true)">+ Add</button></th><th width="20%">Debit (₹)</th><th width="20%">Credit (₹)</th><th width="5%"></th></tr></thead>
+                            <tbody id="acc-entries"></tbody>
+                            <tfoot><tr><td colspan="2" style="text-align: right; font-weight: bold;">Total:</td><td id="acc-dr-total" style="font-weight: bold; font-size:16px; color:var(--red);">0.00</td><td id="acc-cr-total" style="font-weight: bold; font-size:16px; color:var(--green);">0.00</td><td></td></tr></tfoot>
+                        </table>
+                        <button type="button" class="btn btn-secondary" onclick="addAccRow('Dr')" style="margin-top: 10px; font-size:12px;">+ Add Dr/Cr Row</button>
+                    </div>
+
+                    <!-- Footer -->
+                    <div style="margin-top: 20px;">
+                        <label style="font-weight: bold; font-size: 13px;">Narration:</label>
+                        <textarea id="v-narration" rows="2" style="width:100%; border:1px solid var(--border); padding:10px; border-radius:6px; margin-top: 5px;"></textarea>
+                    </div>
+                    
+                    <div style="display: flex; gap: 15px; margin-top: 20px;">
+                        <button class="btn btn-primary" onclick="saveVoucher()" style="flex: 2; font-size: 16px;">Save Voucher (Ctrl+S)</button>
+                        <button class="btn btn-danger" id="btn-delete-v" style="display:none; flex: 1;" onclick="deleteCurrentVoucher()">Delete Entry</button>
+                        <button class="btn btn-secondary" id="btn-print-v" style="display:none; flex: 1; border: 2px solid var(--primary); color: var(--primary);" onclick="printLastVoucher()">🖨️ Print Bill</button>
+                    </div>
+                    <p style="text-align: center; margin-top: 15px; font-size: 12px; color: var(--text-muted);">
+                        <b>Shortcut:</b> Press <kbd>Page Up</kbd> to view previous entries and <kbd>Page Down</kbd> for next.
+                    </p>
+                </div>
+            </div>
+
+            <!-- 4. QUOTATION MAKER -->
+            <div id="quotation-view" class="view-section">
+                <h1 class="page-title">Quotation Maker</h1>
+                <div class="card">
+                    <p style="color: var(--text-muted); font-size:13px; margin-bottom:15px;">Quotations do not affect your accounting or P&L. They are just for sharing with clients.</p>
+                    <div style="display: flex; gap: 15px; margin-bottom: 15px;">
+                        <div class="form-group" style="flex:1;"><label>Client Name</label><input type="text" id="q-party" placeholder="Enter Client Name"></div>
+                        <div class="form-group"><label>Quotation No.</label><input type="text" id="q-no" value="QT-001"></div>
+                        <div class="form-group"><label>Date</label><input type="date" id="q-date"></div>
+                    </div>
+                    
+                    <table class="tally-table">
+                        <thead><tr><th width="50%">Description of Service</th><th width="15%">Qty</th><th width="15%">Rate (₹)</th><th width="20%">Amount (₹)</th><th width="5%"></th></tr></thead>
+                        <tbody id="q-entries"></tbody>
+                        <tfoot><tr><td colspan="3" style="text-align: right; font-weight: bold;">Quotation Total:</td><td id="q-total" style="font-weight: bold; font-size:16px; color:var(--primary);">0.00</td><td></td></tr></tfoot>
+                    </table>
+                    <button type="button" class="btn btn-secondary" onclick="addQRow()" style="margin-top: 10px; font-size:12px;">+ Add Item</button>
+
+                    <div style="margin-top: 20px;">
+                        <label style="font-weight: bold; font-size: 13px;">Terms & Conditions:</label>
+                        <textarea id="q-terms" rows="3" style="width:100%; border:1px solid var(--border); padding:10px; border-radius:6px; margin-top: 5px;">1. 50% advance payment required.&#10;2. Validity of this quotation is 15 days.</textarea>
+                    </div>
+                    
+                    <button class="btn btn-primary" onclick="printQuotation()" style="margin-top: 20px; width: 100%; font-size: 16px;">🖨️ Print Quotation</button>
+                </div>
+            </div>
+
+            <!-- 5. REPORTS VIEW -->
+            <div id="reports-view" class="view-section">
+                <h1 class="page-title">Financial Reports</h1>
+                <div style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; border-bottom: 2px solid var(--border); padding-bottom: 15px;">
+                    <button class="btn btn-primary" id="btn-daybook" onclick="switchReport('daybook')">Day Book</button>
+                    <button class="btn btn-secondary" id="btn-pnl" onclick="switchReport('pnl')">Profit & Loss</button>
+                    <button class="btn btn-secondary" id="btn-bs" onclick="switchReport('bs')">Balance Sheet</button>
+                    <button class="btn btn-secondary" id="btn-partystmt" onclick="switchReport('partystmt')">Party Statement</button>
+                    <button class="btn btn-secondary" id="btn-outstanding" onclick="switchReport('outstanding')">Outstanding</button>
+                </div>
+
+                <!-- A. Daybook -->
+                <div id="rep-daybook" class="report-panel">
+                    <div class="card">
+                        <div style="display: flex; gap:15px; margin-bottom:15px; align-items: flex-end;">
+                            <div><label style="font-size: 12px; font-weight: bold;">From</label><br><input type="date" id="db-from" class="v-input-small"></div>
+                            <div><label style="font-size: 12px; font-weight: bold;">To</label><br><input type="date" id="db-to" class="v-input-small"></div>
+                            <button class="btn btn-primary" onclick="generateDayBook()">View</button>
+                        </div>
+                        <table class="data-table">
+                            <thead><tr><th>Date</th><th>Vch No.</th><th>Type</th><th>Narration</th><th>Amount (₹)</th></tr></thead>
+                            <tbody id="daybook-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- B. P&L -->
+                <div id="rep-pnl" class="report-panel" style="display:none;">
+                    <div class="bento-grid">
+                        <div class="card" style="grid-column: span 2;"><h3 style="color:var(--red); margin-bottom: 10px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">Expenses (Dr)</h3><table class="data-table"><tbody id="pnl-expenses"></tbody></table></div>
+                        <div class="card" style="grid-column: span 2;"><h3 style="color:var(--green); margin-bottom: 10px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">Income (Cr)</h3><table class="data-table"><tbody id="pnl-income"></tbody></table></div>
+                        <div class="card wide-card" style="text-align:center; background: var(--dark); color: white; padding: 30px;"><h2>NET PROFIT / LOSS</h2><h1 id="pnl-net" style="font-size: 40px; margin-top: 10px; color: var(--green);">₹0.00</h1></div>
+                    </div>
+                </div>
+
+                <!-- C. Balance Sheet -->
+                <div id="rep-bs" class="report-panel" style="display:none;">
+                    <div class="bento-grid">
+                        <div class="card" style="grid-column: span 2;"><h3 style="color:var(--dark); margin-bottom: 10px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">Liabilities</h3><table class="data-table"><tbody id="bs-liab"></tbody></table></div>
+                        <div class="card" style="grid-column: span 2;"><h3 style="color:var(--dark); margin-bottom: 10px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">Assets</h3><table class="data-table"><tbody id="bs-assets"></tbody></table></div>
+                    </div>
+                </div>
+
+                <!-- D. Party Statement -->
+                <div id="rep-partystmt" class="report-panel" style="display:none;">
+                    <div class="card">
+                        <div style="display: flex; gap:15px; margin-bottom:15px;">
+                            <select id="rep-party-select" class="v-input-large" style="flex:1;"></select>
+                            <button class="btn btn-primary" onclick="generatePartyStatement()">View Statement</button>
+                            <button class="btn btn-secondary" onclick="printPartyStatement()">🖨️ Print</button>
+                        </div>
+                        <table class="data-table">
+                            <thead><tr><th>Date</th><th>Vch No.</th><th>Type</th><th>Debit (₹)</th><th>Credit (₹)</th></tr></thead>
+                            <tbody id="party-stmt-body"></tbody>
+                            <tfoot><tr><td colspan="3" style="text-align:right; font-weight: bold;">Closing Balance:</td><td colspan="2" id="party-closing-bal" style="font-weight:bold; font-size: 16px;">0.00</td></tr></tfoot>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- E. Outstanding -->
+                <div id="rep-outstanding" class="report-panel" style="display:none;">
+                    <div class="bento-grid">
+                        <div class="card" style="grid-column: span 2; border-top: 4px solid var(--green);"><h3 style="color: var(--green); margin-bottom: 15px;">Receivables (Sundry Debtors)</h3><table class="data-table"><tbody id="out-receivables"></tbody></table></div>
+                        <div class="card" style="grid-column: span 2; border-top: 4px solid var(--red);"><h3 style="color: var(--red); margin-bottom: 15px;">Payables (Sundry Creditors)</h3><table class="data-table"><tbody id="out-payables"></tbody></table></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 6. SETTINGS -->
+            <div id="settings-view" class="view-section">
+                <h1 class="page-title">Company Setup & Backup</h1>
+                <div class="card" style="margin-bottom:20px;">
+                    <h3>Company Profile</h3>
+                    <form id="company-settings-form" class="form-grid" style="margin-top:15px;">
+                        <div class="form-group"><label>Company Name</label><input type="text" id="set-name"></div>
+                        <div class="form-group"><label>Phone Number</label><input type="text" id="set-phone"></div>
+                        <div class="form-group"><label>Email</label><input type="email" id="set-email"></div>
+                        <div class="form-group full-width"><label>Address</label><input type="text" id="set-address"></div>
+                        <div class="form-group"><label>Bank Name</label><input type="text" id="set-bank"></div>
+                        <div class="form-group"><label>Account No.</label><input type="text" id="set-ac"></div>
+                        <div class="form-group"><label>IFSC Code</label><input type="text" id="set-ifsc"></div>
+                        <div class="form-group"><label>UPI ID</label><input type="text" id="set-upi"></div>
+                        <div class="form-group full-width"><button type="button" class="btn btn-primary" onclick="saveCompanySettings()">Update Profile</button></div>
+                    </form>
+                </div>
+                <div class="bento-grid">
+                    <div class="card" style="grid-column: span 2; border-top: 4px solid var(--primary);">
+                        <h3 style="color: var(--primary); margin-bottom: 10px;">Export Data (Backup)</h3>
+                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">Download your complete data safely.</p>
+                        <button class="btn btn-primary" onclick="exportData()"><i class="fas fa-download"></i> Download Backup (.json)</button>
+                    </div>
+                    <div class="card" style="grid-column: span 2; border-top: 4px solid var(--red);">
+                        <h3 style="color: var(--red); margin-bottom: 10px;">Import Data (Restore)</h3>
+                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">Warning: Current data will be replaced.</p>
+                        <input type="file" id="import-file" accept=".json" style="display: none;" onchange="importData(event)">
+                        <button class="btn btn-secondary" onclick="document.getElementById('import-file').click()"><i class="fas fa-upload"></i> Select Backup File</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- =========================================
+         🖨️ PRINT TEMPLATES (Hidden in UI)
+         ========================================= -->
+    <div id="print-section">
+        <!-- Template used for Invoice, Quotation, and Statement via JS injection -->
+        <div class="invoice-box" id="print-canvas"></div>
+    </div>
+
+    <script src="db.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
