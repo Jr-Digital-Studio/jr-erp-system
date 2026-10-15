@@ -1,13 +1,30 @@
 /* =========================================
-   JR Digital Studio - Advanced ERP Engine (Cloud + Backup Final)
+   JR Digital Studio - Advanced ERP Engine (Auto-Login & Cloud Sync)
    ========================================= */
 
 let currentVoucherType = 'Sales';
 let currentEditId = null;
 
 // ==========================================
-// 1. LOGIN SYSTEM & CLOUD SYNC
+// 1. LOGIN SYSTEM & AUTO-SESSION
 // ==========================================
+
+// Page refresh hone par auto-login check
+document.addEventListener("DOMContentLoaded", async () => {
+    if (localStorage.getItem('jr_erp_logged_in') === 'true') {
+        document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('main-app').style.display = 'flex';
+        
+        loadDashboard(); // Pehle jaldi se dashboard dikha do
+        
+        // Phir background me cloud se data update kar lo
+        if(typeof pullFromCloud === 'function') {
+            await pullFromCloud();
+            loadDashboard(); // Sync ke baad naye figures update kardo
+        }
+    }
+});
+
 async function checkLogin() {
     const u = document.getElementById('login-user').value;
     const p = document.getElementById('login-pass').value;
@@ -16,10 +33,12 @@ async function checkLogin() {
     if (u === '8128075345' && p === 'Jiya@2026') {
         if(btn) { btn.innerText = "Syncing with Cloud... ⏳"; btn.disabled = true; }
         
-        // Jadoo: Cloud se data load karega
         if(typeof pullFromCloud === 'function') {
             await pullFromCloud();
         }
+        
+        // Browser ki memory me login save kar do
+        localStorage.setItem('jr_erp_logged_in', 'true');
         
         document.getElementById('login-screen').style.display = 'none';
         document.getElementById('main-app').style.display = 'flex';
@@ -31,6 +50,7 @@ async function checkLogin() {
 }
 
 function logout() {
+    localStorage.removeItem('jr_erp_logged_in'); // Memory se login details hatao
     document.getElementById('main-app').style.display = 'none';
     document.getElementById('login-screen').style.display = 'flex';
     document.getElementById('login-pass').value = '';
@@ -112,7 +132,6 @@ document.getElementById('ledger-form').addEventListener('submit', async (e) => {
         document.getElementById('ledger-form').reset();
     }
     
-    // Cloud Par Save Karein
     if(typeof pushToCloud === 'function') await pushToCloud();
 });
 
@@ -357,7 +376,6 @@ async function saveVoucher() {
 
     alert("Voucher Saved Successfully!");
     
-    // Cloud Par Save Karein
     if(typeof pushToCloud === 'function') await pushToCloud();
     
     if (isInv) { 
@@ -380,7 +398,7 @@ async function deleteCurrentVoucher() {
         await db.vouchers.delete(parseInt(editId));
         await db.voucher_entries.where('voucher_id').equals(parseInt(editId)).delete();
         
-        if(typeof pushToCloud === 'function') await pushToCloud(); // Cloud Se Bhi Delete
+        if(typeof pushToCloud === 'function') await pushToCloud();
         
         alert("Voucher Deleted");
         document.getElementById('edit-voucher-id').value = "";
@@ -476,7 +494,6 @@ async function printLastVoucher() {
     if(canvas) { canvas.innerHTML = html; window.print(); }
 }
 
-// Keyboard shortcuts for Voucher Navigation
 document.addEventListener('keydown', function(event) {
     if (document.getElementById('vouchers-view') && document.getElementById('vouchers-view').classList.contains('active-view')) {
         if (event.key === "PageUp") { event.preventDefault(); loadNavVoucher('prev'); }
@@ -584,14 +601,12 @@ async function loadDashboard() {
     const leds = await db.ledgers.toArray();
     const entries = await db.voucher_entries.toArray();
 
-    // Process Opening balances for Debtors
     leds.filter(l => l.group_id === debtGrp).forEach(l => {
         let bal = l.opening_balance || 0;
         if (l.balance_type === 'Cr') bal = -bal;
         rec += bal;
     });
 
-    // Process transactions
     entries.forEach(e => {
         let l = leds.find(x => x.id === e.ledger_id);
         if (!l) return;
@@ -706,7 +721,6 @@ async function saveCompanySettings() {
     const ids = ['set-name', 'set-phone', 'set-email', 'set-address', 'set-bank', 'set-ac', 'set-ifsc', 'set-upi']; 
     for (let i = 0; i < keys.length; i++) await db.settings.put({ key: keys[i], value: document.getElementById(ids[i]).value }); 
     
-    // Cloud Par Save Karein
     if(typeof pushToCloud === 'function') await pushToCloud();
     
     alert("Company Profile Updated successfully!"); 
@@ -730,7 +744,6 @@ async function importData(event) {
             await db.settings.clear(); await db.groups.clear(); await db.ledgers.clear(); await db.vouchers.clear(); await db.voucher_entries.clear(); 
             await db.settings.bulkAdd(data.settings || []); await db.groups.bulkAdd(data.groups || []); await db.ledgers.bulkAdd(data.ledgers || []); await db.vouchers.bulkAdd(data.vouchers || []); await db.voucher_entries.bulkAdd(data.voucher_entries || []); 
             
-            // Import hone ke baad cloud par bhi bhej dega
             if(typeof pushToCloud === 'function') await pushToCloud();
             
             alert("Restored Successfully! Reloading..."); window.location.reload(); 
@@ -739,7 +752,6 @@ async function importData(event) {
     reader.readAsText(file); 
 }
 
-// Login Enter Key Support
 document.addEventListener('keydown', function(event) {
     if (event.key === "Enter") {
         if(document.activeElement.id === 'login-pass' || document.activeElement.id === 'login-user') checkLogin();
