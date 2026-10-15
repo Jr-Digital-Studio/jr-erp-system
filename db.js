@@ -1,10 +1,10 @@
 /* =========================================
-   JR Digital Studio - Database Architecture V2 (With Cloud Sync)
+   JR Digital Studio - Database Architecture V2 (Cloud & Storage Sync)
    ========================================= */
 
 const db = new Dexie("JRAccountingDB");
 
-// Database Schema (Updated with Invoicing, Party Details, and Qty/Rate)
+// Database Schema
 db.version(2).stores({
     settings: 'key, value',
     groups: '++id, name, parent_id, type', 
@@ -25,6 +25,7 @@ const firebaseConfig = {
 
 firebase.initializeApp(firebaseConfig);
 const firestore = firebase.firestore();
+const storage = firebase.storage(); // NEW: Storage for Attachments
 
 // Cloud par data bhejna (Upload)
 async function pushToCloud() {
@@ -84,7 +85,7 @@ async function pullFromCloud() {
     }
 }
 
-// Pehli baar software chalne par default data dalna
+// Default Data Setup
 async function initializeDefaultData() {
     try {
         const groupCount = await db.groups.count();
@@ -132,7 +133,6 @@ async function initializeDefaultData() {
                 { key: "upi_id", value: "jrdigital@upi" }
             ]);
             
-            // Default setup banne ke baad usko bhi cloud par bhej dega
             await pushToCloud();
         }
     } catch (error) { 
