@@ -43,7 +43,9 @@ async function pushToCloud() {
         await firestore.collection("jr_erp_data").doc("vouchers").set({ payload: JSON.stringify(data.vouchers) });
         await firestore.collection("jr_erp_data").doc("voucher_entries").set({ payload: JSON.stringify(data.voucher_entries) });
         console.log("Cloud Sync Success!");
-    } catch (e) { console.error("Sync Error: ", e); }
+    } catch (e) { 
+        console.error("Sync Error: ", e); 
+    }
 }
 
 // Cloud se data lana (Download)
@@ -55,25 +57,40 @@ async function pullFromCloud() {
         let cloudData = {};
         for(let col of cols) {
             const doc = await firestore.collection("jr_erp_data").doc(col).get();
-            if(doc.exists) { hasData = true; cloudData[col] = JSON.parse(doc.data().payload); }
+            if(doc.exists) { 
+                hasData = true; 
+                cloudData[col] = JSON.parse(doc.data().payload); 
+            }
         }
         if(hasData) {
-            await db.settings.clear(); await db.groups.clear(); await db.ledgers.clear(); await db.vouchers.clear(); await db.voucher_entries.clear();
+            await db.settings.clear(); 
+            await db.groups.clear(); 
+            await db.ledgers.clear(); 
+            await db.vouchers.clear(); 
+            await db.voucher_entries.clear();
+            
             if(cloudData.settings) await db.settings.bulkAdd(cloudData.settings);
             if(cloudData.groups) await db.groups.bulkAdd(cloudData.groups);
             if(cloudData.ledgers) await db.ledgers.bulkAdd(cloudData.ledgers);
             if(cloudData.vouchers) await db.vouchers.bulkAdd(cloudData.vouchers);
             if(cloudData.voucher_entries) await db.voucher_entries.bulkAdd(cloudData.voucher_entries);
+            console.log("Cloud Restore Success!");
         } else {
+            console.log("No cloud data found. Initializing defaults...");
             await initializeDefaultData();
         }
-    } catch (e) { console.error("Download Error: ", e); }
+    } catch (e) { 
+        console.error("Download Error: ", e); 
+    }
 }
 
+// Pehli baar software chalne par default data dalna
 async function initializeDefaultData() {
     try {
         const groupCount = await db.groups.count();
         if (groupCount === 0) {
+            console.log("Setting up database for JR Digital Studio...");
+            
             const defaultGroups = [
                 { name: "Indirect Income", parent_id: 0, type: "Income" },
                 { name: "Indirect Expenses", parent_id: 0, type: "Expense" },
@@ -114,7 +131,14 @@ async function initializeDefaultData() {
                 { key: "bank_ifsc", value: "IFSC00000" },
                 { key: "upi_id", value: "jrdigital@upi" }
             ]);
+            
+            // Default setup banne ke baad usko bhi cloud par bhej dega
             await pushToCloud();
         }
-    } catch (error) { console.error("DB Init Error: ", error); }
+    } catch (error) { 
+        console.error("DB Init Error: ", error); 
+    }
 }
+
+// Automatically call init on load
+initializeDefaultData();
