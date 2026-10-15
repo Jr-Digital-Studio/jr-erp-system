@@ -1,19 +1,29 @@
 /* =========================================
-   JR Digital Studio - Advanced ERP Engine (Final Fixed)
+   JR Digital Studio - Advanced ERP Engine (Cloud + Backup Final)
    ========================================= */
 
 let currentVoucherType = 'Sales';
 let currentEditId = null;
 
 // ==========================================
-// 1. LOGIN SYSTEM
+// 1. LOGIN SYSTEM & CLOUD SYNC
 // ==========================================
-function checkLogin() {
+async function checkLogin() {
     const u = document.getElementById('login-user').value;
     const p = document.getElementById('login-pass').value;
+    const btn = document.querySelector('.login-box button');
+    
     if (u === '8128075345' && p === 'Jiya@2026') {
+        if(btn) { btn.innerText = "Syncing with Cloud... ⏳"; btn.disabled = true; }
+        
+        // Jadoo: Cloud se data load karega
+        if(typeof pullFromCloud === 'function') {
+            await pullFromCloud();
+        }
+        
         document.getElementById('login-screen').style.display = 'none';
         document.getElementById('main-app').style.display = 'flex';
+        if(btn) { btn.innerText = "Secure Login"; btn.disabled = false; }
         loadDashboard();
     } else {
         document.getElementById('login-error').style.display = 'block';
@@ -101,6 +111,9 @@ document.getElementById('ledger-form').addEventListener('submit', async (e) => {
         alert(`Ledger Created Successfully!`);
         document.getElementById('ledger-form').reset();
     }
+    
+    // Cloud Par Save Karein
+    if(typeof pushToCloud === 'function') await pushToCloud();
 });
 
 async function loadLedgerList() {
@@ -174,7 +187,6 @@ async function openVoucherType(type) {
     calcTotal();
 }
 
-// BUG FIXED: Direct database fetch to avoid loading race conditions
 async function fillVoucherDropdown(elemId, allowedGroupNames) {
     const groups = await db.groups.toArray();
     const ledgers = await db.ledgers.toArray();
@@ -344,8 +356,38 @@ async function saveVoucher() {
     }
 
     alert("Voucher Saved Successfully!");
-    if (isInv) { document.getElementById('edit-voucher-id').value = vId; document.getElementById('btn-print-v').style.display = 'block'; currentEditId = vId;}
-    else { document.getElementById('edit-voucher-id').value = ""; document.getElementById('v-narration').value = ""; getNextVoucherNo(); openVoucherType(currentVoucherType); }
+    
+    // Cloud Par Save Karein
+    if(typeof pushToCloud === 'function') await pushToCloud();
+    
+    if (isInv) { 
+        document.getElementById('edit-voucher-id').value = vId; 
+        let printBtn = document.getElementById('btn-print-v');
+        if(printBtn) printBtn.style.display = 'block'; 
+        currentEditId = vId;
+    } else { 
+        document.getElementById('edit-voucher-id').value = ""; 
+        document.getElementById('v-narration').value = ""; 
+        getNextVoucherNo(); 
+        openVoucherType(currentVoucherType); 
+    }
+}
+
+async function deleteCurrentVoucher() {
+    let editId = document.getElementById('edit-voucher-id').value;
+    if(!editId) return;
+    if(confirm("Are you sure you want to delete this voucher permanently?")) {
+        await db.vouchers.delete(parseInt(editId));
+        await db.voucher_entries.where('voucher_id').equals(parseInt(editId)).delete();
+        
+        if(typeof pushToCloud === 'function') await pushToCloud(); // Cloud Se Bhi Delete
+        
+        alert("Voucher Deleted");
+        document.getElementById('edit-voucher-id').value = "";
+        document.getElementById('v-narration').value = "";
+        getNextVoucherNo(); 
+        openVoucherType(currentVoucherType);
+    }
 }
 
 async function loadNavVoucher(dir) {
@@ -355,24 +397,35 @@ async function loadNavVoucher(dir) {
     if (dir === 'next') v = currentEditIdVal ? await db.vouchers.where('id').above(currentEditIdVal).first() : null;
     if (!v) return;
 
-    document.getElementById('v-edit-badge').style.display = 'inline-block';
+    let badge = document.getElementById('v-edit-badge'); if(badge) badge.style.display = 'inline-block';
+    let delBtn = document.getElementById('btn-delete-v'); if(delBtn) delBtn.style.display = 'block';
     document.getElementById('edit-voucher-id').value = v.id;
     currentEditId = v.id;
-    document.getElementById('v-no').value = v.voucher_no; document.getElementById('v-date').value = v.date; document.getElementById('v-narration').value = v.narration;
+    document.getElementById('v-no').value = v.voucher_no; 
+    document.getElementById('v-date').value = v.date; 
+    document.getElementById('v-narration').value = v.narration;
 
     currentVoucherType = v.type;
-    document.getElementById('v-title').innerText = v.type + " Voucher";
-    document.querySelectorAll('.voucher-menu button').forEach(b => { b.classList.remove('active-btn'); b.style.background = ''; b.style.color = ''; if (b.innerText.includes(v.type)) { b.classList.add('active-btn'); if (v.type === 'Sales') { b.style.background = 'var(--primary)'; b.style.color = 'white'; } if (v.type === 'Purchase') { b.style.background = 'var(--yellow)'; b.style.color = 'white'; } } });
+    let title = document.getElementById('v-title'); if(title) title.innerText = v.type + " Voucher";
+    
+    document.querySelectorAll('.voucher-menu button').forEach(b => { 
+        b.classList.remove('active-btn'); b.style.background = ''; b.style.color = ''; 
+        if (b.innerText.includes(v.type)) { 
+            b.classList.add('active-btn'); 
+            if (v.type === 'Sales') { b.style.background = 'var(--primary)'; b.style.color = 'white'; } 
+            if (v.type === 'Purchase') { b.style.background = 'var(--yellow)'; b.style.color = 'white'; } 
+        } 
+    });
 
     let isInv = ['Sales', 'Purchase'].includes(v.type);
-    document.getElementById('mode-invoice').style.display = isInv ? 'block' : 'none';
-    document.getElementById('mode-accounting').style.display = isInv ? 'none' : 'block';
-    document.getElementById('btn-print-v').style.display = isInv ? 'block' : 'none';
+    let invMode = document.getElementById('mode-invoice'); if(invMode) invMode.style.display = isInv ? 'block' : 'none';
+    let accMode = document.getElementById('mode-accounting'); if(accMode) accMode.style.display = isInv ? 'none' : 'block';
+    let printBtn = document.getElementById('btn-print-v'); if(printBtn) printBtn.style.display = isInv ? 'block' : 'none';
 
     let ents = await db.voucher_entries.where('voucher_id').equals(v.id).toArray();
     if (isInv) {
         let pLine = ents.find(e => v.type === 'Sales' ? e.debit > 0 : e.credit > 0);
-        await fillVoucherDropdown('inv-party', ['ALL']); // Temporarily allow all for viewing safely
+        await fillVoucherDropdown('inv-party', ['ALL']); 
         document.getElementById('inv-party').value = pLine.ledger_id;
         document.getElementById('inv-entries').innerHTML = '';
         for (let e of ents.filter(x => x.id !== pLine.id)) await addInvRow(e.ledger_id, e.qty, e.rate, (e.debit || e.credit));
@@ -419,9 +472,17 @@ async function printLastVoucher() {
             <tr><td style="width: 60%; vertical-align: top; padding-right: 20px;"><div style="background: #f8fafc; padding: 15px; border: 1px solid #ddd; border-radius: 4px;"><b style="color: #222;">Narration:</b><br><span style="font-size: 14px; color: #555;">${v.narration || '-'}</span></div><div style="margin-top: 15px; background: #f8fafc; padding: 15px; border: 1px solid #ddd; border-radius: 4px;"><b style="color: #222;">Bank Details:</b><br><table style="width: 100%; font-size: 13px; margin-top: 5px; color: #444;"><tr><td style="width: 30%;"><b>Bank Name:</b></td><td>${getS('bank_name')}</td></tr><tr><td><b>Account No:</b></td><td>${getS('bank_ac')}</td></tr><tr><td><b>IFSC Code:</b></td><td>${getS('bank_ifsc')}</td></tr><tr><td><b>UPI ID:</b></td><td>${getS('upi_id')}</td></tr></table></div></td><td style="width: 40%; vertical-align: bottom; text-align: center; padding-top: 50px;"><hr style="width: 80%; border-top: 1px solid #000; margin-bottom: 10px;"><b style="color: #222;">Authorized Signatory</b><br><span style="font-size: 12px; color: #666;">For ${getS('company_name')}</span></td></tr>
         </table>
     `;
-    document.getElementById('print-canvas').innerHTML = html;
-    window.print();
+    let canvas = document.getElementById('print-canvas');
+    if(canvas) { canvas.innerHTML = html; window.print(); }
 }
+
+// Keyboard shortcuts for Voucher Navigation
+document.addEventListener('keydown', function(event) {
+    if (document.getElementById('vouchers-view') && document.getElementById('vouchers-view').classList.contains('active-view')) {
+        if (event.key === "PageUp") { event.preventDefault(); loadNavVoucher('prev'); }
+        if (event.key === "PageDown") { event.preventDefault(); loadNavVoucher('next'); }
+    }
+});
 
 // ==========================================
 // 5. QUOTATION MAKER
@@ -435,13 +496,18 @@ function addQRow() {
         <td><input type="number" class="q-amt" value="0" readonly style="width:100%; border:none; padding:8px; font-weight:bold;"></td>
         <td><button type="button" class="btn-tiny" style="color:white; background:var(--red);" onclick="this.closest('tr').remove(); calcQRow(this);">X</button></td>
     `;
-    document.getElementById('q-entries').appendChild(tr);
+    let qEntries = document.getElementById('q-entries');
+    if(qEntries) qEntries.appendChild(tr);
 }
+
 function calcQRow(el) {
     const tr = el.closest('tr');
     if (tr) tr.querySelector('.q-amt').value = ((tr.querySelector('.q-qty').value || 0) * (tr.querySelector('.q-rate').value || 0)).toFixed(2);
-    let t = 0; document.querySelectorAll('.q-amt').forEach(i => t += parseFloat(i.value || 0)); document.getElementById('q-total').innerText = t.toFixed(2);
+    let t = 0; document.querySelectorAll('.q-amt').forEach(i => t += parseFloat(i.value || 0)); 
+    let qTotal = document.getElementById('q-total');
+    if(qTotal) qTotal.innerText = t.toFixed(2);
 }
+
 function checkQAuto(el) { const tr = el.closest('tr'); if (tr === tr.parentElement.lastElementChild) addQRow(); }
 
 async function printQuotation() {
@@ -478,8 +544,8 @@ async function printQuotation() {
         </table>
         <div style="margin-top:30px;"><b>Terms & Conditions:</b><br><pre style="font-family:inherit; color:#555; white-space: pre-wrap;">${document.getElementById('q-terms').value}</pre></div>
     `;
-    document.getElementById('print-canvas').innerHTML = html;
-    window.print();
+    let canvas = document.getElementById('print-canvas');
+    if(canvas) { canvas.innerHTML = html; window.print(); }
 }
 
 // ==========================================
@@ -500,12 +566,13 @@ function switchReport(id) {
 
 async function loadDashboard() {
     const tbody = document.getElementById('recent-transactions');
+    if(!tbody) return;
     tbody.innerHTML = '';
     const recentV = await db.vouchers.orderBy('id').reverse().limit(5).toArray();
 
     if (recentV.length === 0) tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No data</td></tr>';
     recentV.forEach(v => {
-        tbody.innerHTML += `<tr><td>${new Date(v.date).toLocaleDateString('en-IN')}</td><td><b>${v.voucher_no}</b></td><td><span class="badge-non-gst" style="margin:0;">${v.type}</span></td><td>${v.narration || '-'}</td><td><b>₹${v.total_amount.toFixed(2)}</b></td></tr>`;
+        tbody.innerHTML += `<tr><td>${new Date(v.date).toLocaleDateString('en-IN')}</td><td><b>${v.voucher_no}</b></td><td><span class="badge-non-gst" style="margin:0; background:var(--dark); color:white; padding:3px 8px; border-radius:10px; font-size:11px;">${v.type}</span></td><td>${v.narration || '-'}</td><td><b>₹${v.total_amount.toFixed(2)}</b></td></tr>`;
     });
 
     let tInc = 0, tExp = 0, rec = 0;
@@ -554,7 +621,7 @@ async function generatePnL() {
         let lTot = 0; entries.filter(e => e.ledger_id === l.id).forEach(e => { if (l.group_id === incGrp) lTot += (e.credit - e.debit); if (l.group_id === expGrp) lTot += (e.debit - e.credit); });
         if (lTot > 0) { if (l.group_id === incGrp) { iB.innerHTML += `<tr><td>${l.name}</td><td style="text-align:right;">₹${lTot.toFixed(2)}</td></tr>`; tInc += lTot; } if (l.group_id === expGrp) { eB.innerHTML += `<tr><td>${l.name}</td><td style="text-align:right;">₹${lTot.toFixed(2)}</td></tr>`; tExp += lTot; } }
     });
-    document.getElementById('pnl-tot-inc').innerText = `₹${tInc.toFixed(2)}`; document.getElementById('pnl-tot-exp').innerText = `₹${tExp.toFixed(2)}`; document.getElementById('pnl-net').innerText = `₹${Math.abs(tInc - tExp).toFixed(2)}`;
+    document.getElementById('pnl-net').innerText = `₹${Math.abs(tInc - tExp).toFixed(2)}`;
 }
 
 async function generateBalanceSheet() {
@@ -623,12 +690,54 @@ async function generateOutstanding() {
 }
 
 // ==========================================
-// 7. COMPANY SETTINGS & BACKUP
+// 7. COMPANY SETTINGS & EXPORT / IMPORT
 // ==========================================
-async function loadCompanySettings() { const settings = await db.settings.toArray(); const getS = (key) => { const s = settings.find(s => s.key === key); return s ? s.value : ''; }; ['name', 'phone', 'email', 'address', 'bank', 'ac', 'ifsc', 'upi'].forEach(k => { if (document.getElementById('set-' + k)) document.getElementById('set-' + k).value = getS(k === 'name' ? 'company_name' : k === 'phone' ? 'company_phone' : k === 'email' ? 'company_email' : k === 'address' ? 'company_address' : k === 'bank' ? 'bank_name' : k === 'ac' ? 'bank_ac' : k === 'ifsc' ? 'bank_ifsc' : 'upi_id'); }); }
-async function saveCompanySettings() { const keys = ['company_name', 'company_phone', 'company_email', 'company_address', 'bank_name', 'bank_ac', 'bank_ifsc', 'upi_id']; const ids = ['set-name', 'set-phone', 'set-email', 'set-address', 'set-bank', 'set-ac', 'set-ifsc', 'set-upi']; for (let i = 0; i < keys.length; i++) await db.settings.put({ key: keys[i], value: document.getElementById(ids[i]).value }); alert("Company Profile Updated successfully!"); }
-async function exportData() { const data = { settings: await db.settings.toArray(), groups: await db.groups.toArray(), ledgers: await db.ledgers.toArray(), vouchers: await db.vouchers.toArray(), voucher_entries: await db.voucher_entries.toArray() }; const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" })); a.download = `jr_erp_backup_${new Date().toISOString().split('T')[0]}.json`; document.body.appendChild(a); a.click(); document.body.removeChild(a); }
-async function importData(event) { const file = event.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = async function (e) { try { const data = JSON.parse(e.target.result); if (!confirm("WARNING: Current data will be replaced. Continue?")) return; await db.settings.clear(); await db.groups.clear(); await db.ledgers.clear(); await db.vouchers.clear(); await db.voucher_entries.clear(); await db.settings.bulkAdd(data.settings || []); await db.groups.bulkAdd(data.groups || []); await db.ledgers.bulkAdd(data.ledgers || []); await db.vouchers.bulkAdd(data.vouchers || []); await db.voucher_entries.bulkAdd(data.voucher_entries || []); alert("Restored Successfully! Reloading..."); window.location.reload(); } catch (err) { alert("Invalid file format."); } }; reader.readAsText(file); }
+async function loadCompanySettings() { 
+    const settings = await db.settings.toArray(); 
+    const getS = (key) => { const s = settings.find(s => s.key === key); return s ? s.value : ''; }; 
+    ['name', 'phone', 'email', 'address', 'bank', 'ac', 'ifsc', 'upi'].forEach(k => { 
+        let el = document.getElementById('set-' + k);
+        if (el) el.value = getS(k === 'name' ? 'company_name' : k === 'phone' ? 'company_phone' : k === 'email' ? 'company_email' : k === 'address' ? 'company_address' : k === 'bank' ? 'bank_name' : k === 'ac' ? 'bank_ac' : k === 'ifsc' ? 'bank_ifsc' : 'upi_id'); 
+    }); 
+}
+
+async function saveCompanySettings() { 
+    const keys = ['company_name', 'company_phone', 'company_email', 'company_address', 'bank_name', 'bank_ac', 'bank_ifsc', 'upi_id']; 
+    const ids = ['set-name', 'set-phone', 'set-email', 'set-address', 'set-bank', 'set-ac', 'set-ifsc', 'set-upi']; 
+    for (let i = 0; i < keys.length; i++) await db.settings.put({ key: keys[i], value: document.getElementById(ids[i]).value }); 
+    
+    // Cloud Par Save Karein
+    if(typeof pushToCloud === 'function') await pushToCloud();
+    
+    alert("Company Profile Updated successfully!"); 
+}
+
+async function exportData() { 
+    const data = { settings: await db.settings.toArray(), groups: await db.groups.toArray(), ledgers: await db.ledgers.toArray(), vouchers: await db.vouchers.toArray(), voucher_entries: await db.voucher_entries.toArray() }; 
+    const a = document.createElement('a'); 
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" })); 
+    a.download = `jr_erp_backup_${new Date().toISOString().split('T')[0]}.json`; 
+    document.body.appendChild(a); a.click(); document.body.removeChild(a); 
+}
+
+async function importData(event) { 
+    const file = event.target.files[0]; if (!file) return; 
+    const reader = new FileReader(); 
+    reader.onload = async function (e) { 
+        try { 
+            const data = JSON.parse(e.target.result); 
+            if (!confirm("WARNING: Current data will be replaced. Continue?")) return; 
+            await db.settings.clear(); await db.groups.clear(); await db.ledgers.clear(); await db.vouchers.clear(); await db.voucher_entries.clear(); 
+            await db.settings.bulkAdd(data.settings || []); await db.groups.bulkAdd(data.groups || []); await db.ledgers.bulkAdd(data.ledgers || []); await db.vouchers.bulkAdd(data.vouchers || []); await db.voucher_entries.bulkAdd(data.voucher_entries || []); 
+            
+            // Import hone ke baad cloud par bhi bhej dega
+            if(typeof pushToCloud === 'function') await pushToCloud();
+            
+            alert("Restored Successfully! Reloading..."); window.location.reload(); 
+        } catch (err) { alert("Invalid file format."); } 
+    }; 
+    reader.readAsText(file); 
+}
 
 // Login Enter Key Support
 document.addEventListener('keydown', function(event) {
