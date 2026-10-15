@@ -1,5 +1,5 @@
 /* =========================================
-   JR Digital Studio - Database Architecture V2 (With Invoicing)
+   JR Digital Studio - Database Architecture V2 (With Cloud Sync)
    ========================================= */
 
 const db = new Dexie("JRAccountingDB");
@@ -10,15 +10,70 @@ db.version(2).stores({
     groups: '++id, name, parent_id, type', 
     ledgers: '++id, name, group_id, opening_balance, balance_type, address, phone, is_system', 
     vouchers: '++id, voucher_no, date, type, total_amount, narration, tax_mode, created_at', 
-    voucher_entries: '++id, voucher_id, ledger_id, debit, credit, qty, rate' // Qty & Rate added
+    voucher_entries: '++id, voucher_id, ledger_id, debit, credit, qty, rate'
 });
+
+// Firebase Cloud Connection
+const firebaseConfig = {
+    apiKey: "AIzaSyDCY5dysvmJpJLXjAwbCzOBIiP-dSKVt4U",
+    authDomain: "jr-accounting-5bf92.firebaseapp.com",
+    projectId: "jr-accounting-5bf92",
+    storageBucket: "jr-accounting-5bf92.firebasestorage.app",
+    messagingSenderId: "523295713925",
+    appId: "1:523295713925:web:af01d4cf83277c7c02d7ec"
+};
+
+firebase.initializeApp(firebaseConfig);
+const firestore = firebase.firestore();
+
+// Cloud par data bhejna (Upload)
+async function pushToCloud() {
+    console.log("Syncing to Cloud...");
+    try {
+        const data = {
+            settings: await db.settings.toArray(),
+            groups: await db.groups.toArray(),
+            ledgers: await db.ledgers.toArray(),
+            vouchers: await db.vouchers.toArray(),
+            voucher_entries: await db.voucher_entries.toArray()
+        };
+        await firestore.collection("jr_erp_data").doc("settings").set({ payload: JSON.stringify(data.settings) });
+        await firestore.collection("jr_erp_data").doc("groups").set({ payload: JSON.stringify(data.groups) });
+        await firestore.collection("jr_erp_data").doc("ledgers").set({ payload: JSON.stringify(data.ledgers) });
+        await firestore.collection("jr_erp_data").doc("vouchers").set({ payload: JSON.stringify(data.vouchers) });
+        await firestore.collection("jr_erp_data").doc("voucher_entries").set({ payload: JSON.stringify(data.voucher_entries) });
+        console.log("Cloud Sync Success!");
+    } catch (e) { console.error("Sync Error: ", e); }
+}
+
+// Cloud se data lana (Download)
+async function pullFromCloud() {
+    console.log("Downloading from Cloud...");
+    try {
+        const cols = ['settings', 'groups', 'ledgers', 'vouchers', 'voucher_entries'];
+        let hasData = false;
+        let cloudData = {};
+        for(let col of cols) {
+            const doc = await firestore.collection("jr_erp_data").doc(col).get();
+            if(doc.exists) { hasData = true; cloudData[col] = JSON.parse(doc.data().payload); }
+        }
+        if(hasData) {
+            await db.settings.clear(); await db.groups.clear(); await db.ledgers.clear(); await db.vouchers.clear(); await db.voucher_entries.clear();
+            if(cloudData.settings) await db.settings.bulkAdd(cloudData.settings);
+            if(cloudData.groups) await db.groups.bulkAdd(cloudData.groups);
+            if(cloudData.ledgers) await db.ledgers.bulkAdd(cloudData.ledgers);
+            if(cloudData.vouchers) await db.vouchers.bulkAdd(cloudData.vouchers);
+            if(cloudData.voucher_entries) await db.voucher_entries.bulkAdd(cloudData.voucher_entries);
+        } else {
+            await initializeDefaultData();
+        }
+    } catch (e) { console.error("Download Error: ", e); }
+}
 
 async function initializeDefaultData() {
     try {
         const groupCount = await db.groups.count();
         if (groupCount === 0) {
-            console.log("Setting up database for JR Digital Studio...");
-            
             const defaultGroups = [
                 { name: "Indirect Income", parent_id: 0, type: "Income" },
                 { name: "Indirect Expenses", parent_id: 0, type: "Expense" },
@@ -48,7 +103,6 @@ async function initializeDefaultData() {
             ];
             await db.ledgers.bulkAdd(defaultLedgers);
             
-            // Added Company Billing Settings
             await db.settings.bulkAdd([
                 { key: "tax_mode", value: "NON-GST" },
                 { key: "company_name", value: "JR Digital Studio" },
@@ -60,7 +114,7 @@ async function initializeDefaultData() {
                 { key: "bank_ifsc", value: "IFSC00000" },
                 { key: "upi_id", value: "jrdigital@upi" }
             ]);
+            await pushToCloud();
         }
     } catch (error) { console.error("DB Init Error: ", error); }
 }
-initializeDefaultData();
