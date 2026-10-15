@@ -13,9 +13,8 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
 
-    <!-- Chart.js for Dashboard -->
+    <!-- Chart.js & html2pdf -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- html2pdf for 1-Click PDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -23,34 +22,22 @@
 </head>
 <body>
 
-    <!-- ==========================================
-         LOGIN SCREEN
-         ========================================== -->
+    <!-- LOGIN SCREEN -->
     <div id="login-screen" class="login-overlay">
         <div class="login-box">
             <h2 style="color: var(--primary); margin-bottom: 20px;">JR DIGITAL<span style="color:#333;">.</span></h2>
             <p style="color: #666; margin-bottom: 20px; font-size: 14px;">Enterprise ERP Login</p>
-            <div class="form-group">
-                <input type="text" id="login-user" placeholder="Username (Phone No)" style="padding: 12px;">
-            </div>
-            <div class="form-group" style="margin-top: 15px;">
-                <input type="password" id="login-pass" placeholder="Password" style="padding: 12px;">
-            </div>
+            <div class="form-group"><input type="text" id="login-user" placeholder="Username (Phone No)" style="padding: 12px;"></div>
+            <div class="form-group" style="margin-top: 15px;"><input type="password" id="login-pass" placeholder="Password" style="padding: 12px;"></div>
             <button class="btn btn-primary" style="width: 100%; margin-top: 20px; padding: 12px;" onclick="checkLogin()">Secure Login</button>
             <p id="login-error" style="color: red; display: none; margin-top: 10px; font-size: 13px;">Invalid Username or Password!</p>
         </div>
     </div>
 
-    <!-- ==========================================
-         MAIN ERP APPLICATION
-         ========================================== -->
+    <!-- MAIN ERP APPLICATION -->
     <div class="app-container" id="main-app" style="display: none;">
-        <!-- Sidebar Navigation -->
         <aside class="sidebar">
-            <div class="brand">
-                <h2>JR DIGITAL<span>.</span></h2>
-                <p>Advanced ERP</p>
-            </div>
+            <div class="brand"><h2>JR DIGITAL<span>.</span></h2><p>Advanced ERP</p></div>
             <nav class="nav-menu">
                 <a href="#" class="active" onclick="switchTab('dashboard')"><i class="fas fa-home"></i> Dashboard</a>
                 <a href="#" onclick="switchTab('masters')"><i class="fas fa-users-cog"></i> Ledgers Master</a>
@@ -79,34 +66,18 @@
                     <div class="card stat-card green"><h3>Net Profit</h3><h2 id="dash-profit">₹0.00</h2></div>
                     <div class="card stat-card yellow"><h3>Receivables</h3><h2 id="dash-receivable">₹0.00</h2></div>
                 </div>
-                
                 <div class="bento-grid" style="margin-top: 20px;">
-                    <div class="card" style="grid-column: span 2;">
-                        <h3 style="margin-bottom: 15px;">Financial Overview</h3>
-                        <canvas id="dashChart" style="width:100%; height:250px;"></canvas>
-                    </div>
-                    <div class="card" style="grid-column: span 2;">
-                        <h3 style="margin-bottom: 15px;">Recent Transactions</h3>
-                        <table class="data-table">
-                            <thead><tr><th>Date</th><th>Vch No.</th><th>Type</th><th>Amount (₹)</th></tr></thead>
-                            <tbody id="recent-transactions"></tbody>
-                        </table>
-                    </div>
+                    <div class="card" style="grid-column: span 2;"><h3 style="margin-bottom: 15px;">Financial Overview</h3><canvas id="dashChart" style="width:100%; height:250px;"></canvas></div>
+                    <div class="card" style="grid-column: span 2;"><h3 style="margin-bottom: 15px;">Recent Transactions</h3><table class="data-table"><thead><tr><th>Date</th><th>Vch No.</th><th>Type</th><th>Amount (₹)</th></tr></thead><tbody id="recent-transactions"></tbody></table></div>
                 </div>
             </div>
 
             <!-- 2. LEDGER MASTER -->
             <div id="masters-view" class="view-section">
                 <h1 class="page-title">Ledger Master</h1>
-                <div class="card" style="margin-bottom: 20px;">
-                    <button class="btn btn-primary" onclick="showLedgerMode('create')">Create Ledger</button>
-                    <button class="btn btn-secondary" onclick="showLedgerMode('alter')">Alter / Display Ledgers</button>
-                </div>
-
-                <!-- Create/Edit Form -->
+                <div class="card" style="margin-bottom: 20px;"><button class="btn btn-primary" onclick="showLedgerMode('create')">Create Ledger</button><button class="btn btn-secondary" onclick="showLedgerMode('alter')">Alter / Display Ledgers</button></div>
                 <div class="card" id="ledger-form-box">
-                    <h3 id="lm-title" style="margin-bottom: 15px; color: var(--primary);">Create New Ledger</h3>
-                    <input type="hidden" id="edit-ledger-id">
+                    <h3 id="lm-title" style="margin-bottom: 15px; color: var(--primary);">Create New Ledger</h3><input type="hidden" id="edit-ledger-id">
                     <form id="ledger-form" class="form-grid">
                         <div class="form-group"><label>Ledger Name</label><input type="text" id="ledger-name" required></div>
                         <div class="form-group"><label>Under Group</label><select id="ledger-group" required></select></div>
@@ -114,21 +85,10 @@
                         <div class="form-group"><label>Dr / Cr</label><select id="ledger-type"><option value="Dr">Dr</option><option value="Cr">Cr</option></select></div>
                         <div class="form-group"><label>Phone Number</label><input type="text" id="ledger-phone"></div>
                         <div class="form-group" style="grid-column: span 2;"><label>Address</label><input type="text" id="ledger-address"></div>
-                        <div class="form-group full-width">
-                            <button type="submit" class="btn btn-primary" id="btn-save-ledger">Save Ledger</button>
-                            <button type="button" class="btn btn-secondary" onclick="showLedgerMode('create')" style="margin-left:10px;">Clear Form</button>
-                        </div>
+                        <div class="form-group full-width"><button type="submit" class="btn btn-primary" id="btn-save-ledger">Save Ledger</button><button type="button" class="btn btn-secondary" onclick="showLedgerMode('create')" style="margin-left:10px;">Clear Form</button></div>
                     </form>
                 </div>
-
-                <!-- Alter/Display List -->
-                <div class="card" id="ledger-list-box" style="display: none;">
-                    <h3 style="margin-bottom: 15px; color: var(--text-main);">All Ledgers</h3>
-                    <table class="data-table">
-                        <thead><tr><th>Ledger Name</th><th>Group</th><th>Balance</th><th>Action</th></tr></thead>
-                        <tbody id="ledger-list-body"></tbody>
-                    </table>
-                </div>
+                <div class="card" id="ledger-list-box" style="display: none;"><h3 style="margin-bottom: 15px; color: var(--text-main);">All Ledgers</h3><table class="data-table"><thead><tr><th>Ledger Name</th><th>Group</th><th>Balance</th><th>Action</th></tr></thead><tbody id="ledger-list-body"></tbody></table></div>
             </div>
 
             <!-- 3. VOUCHER ENTRY -->
@@ -161,46 +121,27 @@
 
                     <!-- Invoice Mode -->
                     <div id="mode-invoice">
-                        <div class="form-group" style="margin-bottom: 15px;">
-                            <label>Party A/c Name <button type="button" class="btn-tiny" onclick="showLedgerMode('create', true)">+ Add New Party</button></label>
-                            <select id="inv-party" class="v-input-large"></select>
-                        </div>
-                        <table class="tally-table">
-                            <thead><tr><th width="45%">Name of Item / Ledger</th><th width="15%">Qty</th><th width="20%">Rate (₹)</th><th width="20%">Amount (₹)</th><th width="5%"></th></tr></thead>
-                            <tbody id="inv-entries"></tbody>
-                            <tfoot><tr><td colspan="3" style="text-align: right; font-weight: bold;">Grand Total:</td><td id="inv-total" style="font-weight: bold; font-size:16px; color:var(--primary);">0.00</td><td></td></tr></tfoot>
-                        </table>
-                        <button type="button" class="btn btn-secondary" onclick="addInvRow()" style="margin-top: 10px; font-size:12px;">+ Add Item Row</button>
+                        <div class="form-group" style="margin-bottom: 15px;"><label>Party A/c Name <button type="button" class="btn-tiny" tabindex="-1" onclick="showLedgerMode('create', true)">+ Add New Party</button></label><select id="inv-party" class="v-input-large"></select></div>
+                        <table class="tally-table"><thead><tr><th width="45%">Name of Item / Ledger</th><th width="15%">Qty</th><th width="20%">Rate (₹)</th><th width="20%">Amount (₹)</th><th width="5%"></th></tr></thead><tbody id="inv-entries"></tbody><tfoot><tr><td colspan="3" style="text-align: right; font-weight: bold;">Grand Total:</td><td id="inv-total" style="font-weight: bold; font-size:16px; color:var(--primary);">0.00</td><td></td></tr></tfoot></table>
+                        <button type="button" class="btn btn-secondary" tabindex="-1" onclick="addInvRow()" style="margin-top: 10px; font-size:12px;">+ Add Item Row</button>
                     </div>
 
                     <!-- Accounting Mode -->
                     <div id="mode-accounting" style="display: none;">
-                        <table class="tally-table">
-                            <thead><tr><th width="10%">Dr/Cr</th><th width="50%">Particulars <button type="button" class="btn-tiny" onclick="showLedgerMode('create', true)">+ Add</button></th><th width="20%">Debit (₹)</th><th width="20%">Credit (₹)</th><th width="5%"></th></tr></thead>
-                            <tbody id="acc-entries"></tbody>
-                            <tfoot><tr><td colspan="2" style="text-align: right; font-weight: bold;">Total:</td><td id="acc-dr-total" style="font-weight: bold; font-size:16px; color:var(--red);">0.00</td><td id="acc-cr-total" style="font-weight: bold; font-size:16px; color:var(--green);">0.00</td><td></td></tr></tfoot>
-                        </table>
-                        <button type="button" class="btn btn-secondary" onclick="addAccRow('Dr')" style="margin-top: 10px; font-size:12px;">+ Add Dr/Cr Row</button>
+                        <table class="tally-table"><thead><tr><th width="10%">Dr/Cr</th><th width="50%">Particulars <button type="button" class="btn-tiny" tabindex="-1" onclick="showLedgerMode('create', true)">+ Add</button></th><th width="20%">Debit (₹)</th><th width="20%">Credit (₹)</th><th width="5%"></th></tr></thead><tbody id="acc-entries"></tbody><tfoot><tr><td colspan="2" style="text-align: right; font-weight: bold;">Total:</td><td id="acc-dr-total" style="font-weight: bold; font-size:16px; color:var(--red);">0.00</td><td id="acc-cr-total" style="font-weight: bold; font-size:16px; color:var(--green);">0.00</td><td></td></tr></tfoot></table>
+                        <button type="button" class="btn btn-secondary" tabindex="-1" onclick="addAccRow('Dr')" style="margin-top: 10px; font-size:12px;">+ Add Dr/Cr Row</button>
                     </div>
 
                     <!-- Attachment & Narration -->
                     <div class="form-grid" style="margin-top: 20px; gap: 20px;">
-                        <div style="grid-column: span 2;">
-                            <label style="font-weight: bold; font-size: 13px;">Narration:</label>
-                            <textarea id="v-narration" rows="2" style="width:100%; border:1px solid var(--border); padding:10px; border-radius:6px; margin-top: 5px;"></textarea>
-                        </div>
-                        <div>
-                            <label style="font-weight: bold; font-size: 13px;">Attachment (Bill/Receipt Photo):</label>
-                            <input type="file" id="v-attach" accept="image/*,application/pdf" style="width:100%; padding:8px; border:1px solid var(--border); border-radius:6px; margin-top: 5px;">
-                            <input type="hidden" id="v-attach-url">
-                            <a id="v-attach-link" href="#" target="_blank" style="display:none; color: var(--primary); margin-top:10px; font-weight:bold; display:block;">📄 View Saved Attachment</a>
-                        </div>
+                        <div style="grid-column: span 2;"><label style="font-weight: bold; font-size: 13px;">Narration:</label><textarea id="v-narration" rows="2" style="width:100%; border:1px solid var(--border); padding:10px; border-radius:6px; margin-top: 5px;"></textarea></div>
+                        <div><label style="font-weight: bold; font-size: 13px;">Attachment (Bill/Receipt Photo):</label><input type="file" id="v-attach" accept="image/*,application/pdf" style="width:100%; padding:8px; border:1px solid var(--border); border-radius:6px; margin-top: 5px;"><input type="hidden" id="v-attach-url"><a id="v-attach-link" href="#" target="_blank" style="display:none; color: var(--primary); margin-top:10px; font-weight:bold;">📄 View Saved Attachment</a></div>
                     </div>
                     
-                    <!-- Action Buttons -->
                     <button class="btn btn-primary" id="btn-save-v" onclick="saveVoucher()" style="width: 100%; font-size: 16px; margin-top:20px; padding: 12px;">Save Voucher (Ctrl+S)</button>
                     
                     <div style="display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap;">
+                        <button class="btn btn-secondary" id="btn-new-v" style="display:none; flex: 1; border-color: var(--dark); color: var(--dark); font-weight:bold;" onclick="resetForNewVoucher()">➕ New (Esc)</button>
                         <button class="btn btn-secondary" id="btn-duplicate-v" style="display:none; flex: 1;" onclick="duplicateVoucher()">📋 Duplicate</button>
                         <button class="btn btn-secondary" id="btn-print-v" style="display:none; flex: 1; border-color: var(--primary); color: var(--primary);" onclick="printLastVoucher()">🖨️ Print Bill</button>
                         <button class="btn btn-secondary" id="btn-pdf-v" style="display:none; flex: 1; border-color: #d97706; color: #d97706;" onclick="downloadPDF()">📄 Save PDF</button>
@@ -209,7 +150,7 @@
                     </div>
                     
                     <p style="text-align: center; margin-top: 15px; font-size: 12px; color: var(--text-muted);">
-                        <b>Shortcut:</b> Press <kbd>Page Up</kbd> to view previous entries and <kbd>Page Down</kbd> for next.
+                        <b>Tally Shortcuts:</b> <code>Enter</code> to forward, <code>Backspace</code> to backward, <code>F4-F9</code> to change voucher, <code>Page Up / Down</code> to view entries, <code>Esc</code> for New.
                     </p>
                 </div>
             </div>
@@ -218,25 +159,14 @@
             <div id="quotation-view" class="view-section">
                 <h1 class="page-title">Quotation Maker</h1>
                 <div class="card">
-                    <p style="color: var(--text-muted); font-size:13px; margin-bottom:15px;">Quotations do not affect your accounting or P&L. They are just for sharing with clients.</p>
                     <div style="display: flex; gap: 15px; margin-bottom: 15px;">
                         <div class="form-group" style="flex:1;"><label>Client Name</label><input type="text" id="q-party" placeholder="Enter Client Name"></div>
                         <div class="form-group"><label>Quotation No.</label><input type="text" id="q-no" value="QT-001"></div>
                         <div class="form-group"><label>Date</label><input type="date" id="q-date"></div>
                     </div>
-                    
-                    <table class="tally-table">
-                        <thead><tr><th width="50%">Description of Service</th><th width="15%">Qty</th><th width="15%">Rate (₹)</th><th width="20%">Amount (₹)</th><th width="5%"></th></tr></thead>
-                        <tbody id="q-entries"></tbody>
-                        <tfoot><tr><td colspan="3" style="text-align: right; font-weight: bold;">Quotation Total:</td><td id="q-total" style="font-weight: bold; font-size:16px; color:var(--primary);">0.00</td><td></td></tr></tfoot>
-                    </table>
-                    <button type="button" class="btn btn-secondary" onclick="addQRow()" style="margin-top: 10px; font-size:12px;">+ Add Item</button>
-
-                    <div style="margin-top: 20px;">
-                        <label style="font-weight: bold; font-size: 13px;">Terms & Conditions:</label>
-                        <textarea id="q-terms" rows="3" style="width:100%; border:1px solid var(--border); padding:10px; border-radius:6px; margin-top: 5px;">1. 50% advance payment required.&#10;2. Validity of this quotation is 15 days.</textarea>
-                    </div>
-                    
+                    <table class="tally-table"><thead><tr><th width="50%">Description of Service</th><th width="15%">Qty</th><th width="15%">Rate (₹)</th><th width="20%">Amount (₹)</th><th width="5%"></th></tr></thead><tbody id="q-entries"></tbody><tfoot><tr><td colspan="3" style="text-align: right; font-weight: bold;">Quotation Total:</td><td id="q-total" style="font-weight: bold; font-size:16px; color:var(--primary);">0.00</td><td></td></tr></tfoot></table>
+                    <button type="button" class="btn btn-secondary" tabindex="-1" onclick="addQRow()" style="margin-top: 10px; font-size:12px;">+ Add Item</button>
+                    <div style="margin-top: 20px;"><label style="font-weight: bold; font-size: 13px;">Terms & Conditions:</label><textarea id="q-terms" rows="3" style="width:100%; border:1px solid var(--border); padding:10px; border-radius:6px; margin-top: 5px;">1. 50% advance payment required.&#10;2. Validity of this quotation is 15 days.</textarea></div>
                     <button class="btn btn-primary" onclick="printQuotation()" style="margin-top: 20px; width: 100%; font-size: 16px;">🖨️ Print Quotation</button>
                 </div>
             </div>
@@ -270,9 +200,17 @@
                 <!-- B. P&L -->
                 <div id="rep-pnl" class="report-panel" style="display:none;">
                     <div class="bento-grid">
-                        <div class="card" style="grid-column: span 2;"><h3 style="color:var(--red); margin-bottom: 10px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">Expenses (Dr)</h3><table class="data-table"><tbody id="pnl-expenses"></tbody></table></div>
-                        <div class="card" style="grid-column: span 2;"><h3 style="color:var(--green); margin-bottom: 10px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">Income (Cr)</h3><table class="data-table"><tbody id="pnl-income"></tbody></table></div>
-                        <div class="card wide-card" style="text-align:center; background: var(--dark); color: white; padding: 30px;"><h2>NET PROFIT / LOSS</h2><h1 id="pnl-net" style="font-size: 40px; margin-top: 10px; color: var(--green);">₹0.00</h1></div>
+                        <div class="card" style="grid-column: span 2;">
+                            <h3 style="color:var(--red); margin-bottom: 10px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">Expenses (Dr)</h3>
+                            <table class="data-table"><tbody id="pnl-expenses"></tbody></table>
+                        </div>
+                        <div class="card" style="grid-column: span 2;">
+                            <h3 style="color:var(--green); margin-bottom: 10px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">Income (Cr)</h3>
+                            <table class="data-table"><tbody id="pnl-income"></tbody></table>
+                        </div>
+                        <div class="card wide-card" style="text-align:center; background: var(--dark); color: white; padding: 30px;">
+                            <h2>NET PROFIT / LOSS</h2><h1 id="pnl-net" style="font-size: 40px; margin-top: 10px; color: var(--green);">₹0.00</h1>
+                        </div>
                     </div>
                 </div>
 
@@ -343,12 +281,8 @@
         </main>
     </div>
 
-    <!-- =========================================
-         🖨️ PRINT TEMPLATES (Hidden in UI)
-         ========================================= -->
-    <div id="print-section">
-        <div class="invoice-box" id="print-canvas"></div>
-    </div>
+    <!-- PRINT TEMPLATES -->
+    <div id="print-section"><div class="invoice-box" id="print-canvas"></div></div>
 
     <script src="db.js"></script>
     <script src="app.js"></script>
