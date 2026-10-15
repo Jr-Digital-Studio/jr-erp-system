@@ -8,9 +8,15 @@
     <!-- Offline Database -->
     <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
     
-    <!-- Cloud Database (Firebase) - YE NAYA ADD KIYA HAI -->
+    <!-- Cloud Database & Storage (Firebase) -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+
+    <!-- Chart.js for Dashboard -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- html2pdf for 1-Click PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
@@ -59,7 +65,7 @@
             <header class="topbar">
                 <div class="user-info">
                     <span class="financial-year" style="margin-right: 15px;">Welcome, Admin</span>
-                    <span class="badge-non-gst">NON-GST MODE</span>
+                    <span class="badge-non-gst" style="background:var(--green);">CLOUD SYNC ACTIVE</span>
                     <button class="btn btn-danger" onclick="logout()" style="margin-left: 15px; padding: 5px 10px; font-size: 12px;">Logout</button>
                 </div>
             </header>
@@ -74,18 +80,22 @@
                     <div class="card stat-card yellow"><h3>Receivables</h3><h2 id="dash-receivable">₹0.00</h2></div>
                 </div>
                 
-                <div class="card wide-card" style="margin-top: 20px;">
-                    <h3 style="margin-bottom: 15px;">Recent Transactions</h3>
-                    <table class="data-table">
-                        <thead>
-                            <tr><th>Date</th><th>Vch No.</th><th>Type</th><th>Narration</th><th>Amount (₹)</th></tr>
-                        </thead>
-                        <tbody id="recent-transactions"></tbody>
-                    </table>
+                <div class="bento-grid" style="margin-top: 20px;">
+                    <div class="card" style="grid-column: span 2;">
+                        <h3 style="margin-bottom: 15px;">Financial Overview</h3>
+                        <canvas id="dashChart" style="width:100%; height:250px;"></canvas>
+                    </div>
+                    <div class="card" style="grid-column: span 2;">
+                        <h3 style="margin-bottom: 15px;">Recent Transactions</h3>
+                        <table class="data-table">
+                            <thead><tr><th>Date</th><th>Vch No.</th><th>Type</th><th>Amount (₹)</th></tr></thead>
+                            <tbody id="recent-transactions"></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 
-            <!-- 2. LEDGER MASTER (Create / Alter / Display) -->
+            <!-- 2. LEDGER MASTER -->
             <div id="masters-view" class="view-section">
                 <h1 class="page-title">Ledger Master</h1>
                 <div class="card" style="margin-bottom: 20px;">
@@ -149,7 +159,7 @@
 
                     <input type="hidden" id="edit-voucher-id">
 
-                    <!-- Invoice Mode (Sales/Purchase) -->
+                    <!-- Invoice Mode -->
                     <div id="mode-invoice">
                         <div class="form-group" style="margin-bottom: 15px;">
                             <label>Party A/c Name <button type="button" class="btn-tiny" onclick="showLedgerMode('create', true)">+ Add New Party</button></label>
@@ -163,7 +173,7 @@
                         <button type="button" class="btn btn-secondary" onclick="addInvRow()" style="margin-top: 10px; font-size:12px;">+ Add Item Row</button>
                     </div>
 
-                    <!-- Accounting Mode (Receipt/Payment/Contra/Journal) -->
+                    <!-- Accounting Mode -->
                     <div id="mode-accounting" style="display: none;">
                         <table class="tally-table">
                             <thead><tr><th width="10%">Dr/Cr</th><th width="50%">Particulars <button type="button" class="btn-tiny" onclick="showLedgerMode('create', true)">+ Add</button></th><th width="20%">Debit (₹)</th><th width="20%">Credit (₹)</th><th width="5%"></th></tr></thead>
@@ -173,17 +183,31 @@
                         <button type="button" class="btn btn-secondary" onclick="addAccRow('Dr')" style="margin-top: 10px; font-size:12px;">+ Add Dr/Cr Row</button>
                     </div>
 
-                    <!-- Footer -->
-                    <div style="margin-top: 20px;">
-                        <label style="font-weight: bold; font-size: 13px;">Narration:</label>
-                        <textarea id="v-narration" rows="2" style="width:100%; border:1px solid var(--border); padding:10px; border-radius:6px; margin-top: 5px;"></textarea>
+                    <!-- Attachment & Narration -->
+                    <div class="form-grid" style="margin-top: 20px; gap: 20px;">
+                        <div style="grid-column: span 2;">
+                            <label style="font-weight: bold; font-size: 13px;">Narration:</label>
+                            <textarea id="v-narration" rows="2" style="width:100%; border:1px solid var(--border); padding:10px; border-radius:6px; margin-top: 5px;"></textarea>
+                        </div>
+                        <div>
+                            <label style="font-weight: bold; font-size: 13px;">Attachment (Bill/Receipt Photo):</label>
+                            <input type="file" id="v-attach" accept="image/*,application/pdf" style="width:100%; padding:8px; border:1px solid var(--border); border-radius:6px; margin-top: 5px;">
+                            <input type="hidden" id="v-attach-url">
+                            <a id="v-attach-link" href="#" target="_blank" style="display:none; color: var(--primary); margin-top:10px; font-weight:bold; display:block;">📄 View Saved Attachment</a>
+                        </div>
                     </div>
                     
-                    <div style="display: flex; gap: 15px; margin-top: 20px;">
-                        <button class="btn btn-primary" onclick="saveVoucher()" style="flex: 2; font-size: 16px;">Save Voucher (Ctrl+S)</button>
-                        <button class="btn btn-danger" id="btn-delete-v" style="display:none; flex: 1;" onclick="deleteCurrentVoucher()">Delete Entry</button>
-                        <button class="btn btn-secondary" id="btn-print-v" style="display:none; flex: 1; border: 2px solid var(--primary); color: var(--primary);" onclick="printLastVoucher()">🖨️ Print Bill</button>
+                    <!-- Action Buttons -->
+                    <button class="btn btn-primary" id="btn-save-v" onclick="saveVoucher()" style="width: 100%; font-size: 16px; margin-top:20px; padding: 12px;">Save Voucher (Ctrl+S)</button>
+                    
+                    <div style="display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap;">
+                        <button class="btn btn-secondary" id="btn-duplicate-v" style="display:none; flex: 1;" onclick="duplicateVoucher()">📋 Duplicate</button>
+                        <button class="btn btn-secondary" id="btn-print-v" style="display:none; flex: 1; border-color: var(--primary); color: var(--primary);" onclick="printLastVoucher()">🖨️ Print Bill</button>
+                        <button class="btn btn-secondary" id="btn-pdf-v" style="display:none; flex: 1; border-color: #d97706; color: #d97706;" onclick="downloadPDF()">📄 Save PDF</button>
+                        <button class="btn btn-secondary" id="btn-whatsapp-v" style="display:none; flex: 1; border-color: var(--green); color: var(--green);" onclick="shareWhatsApp()">💬 WhatsApp</button>
+                        <button class="btn btn-danger" id="btn-delete-v" style="display:none; flex: 1;" onclick="deleteCurrentVoucher()">🗑️ Delete</button>
                     </div>
+                    
                     <p style="text-align: center; margin-top: 15px; font-size: 12px; color: var(--text-muted);">
                         <b>Shortcut:</b> Press <kbd>Page Up</kbd> to view previous entries and <kbd>Page Down</kbd> for next.
                     </p>
@@ -323,7 +347,6 @@
          🖨️ PRINT TEMPLATES (Hidden in UI)
          ========================================= -->
     <div id="print-section">
-        <!-- Template used for Invoice, Quotation, and Statement via JS injection -->
         <div class="invoice-box" id="print-canvas"></div>
     </div>
 
